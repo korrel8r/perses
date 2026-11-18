@@ -1,0 +1,32 @@
+{
+  "kind": "Dashboard",
+  "metadata": { "name": "Dummy", "project": "Dummy" },
+  "spec": {
+    "duration": "1h",
+    "panels": {
+      "Dummy": {
+        "kind": "Panel",
+        "spec": {
+          "display": { "name": "Dummy" },
+          "plugin": {
+            "kind": "Korrel8rGraphPanel",
+            "spec": { "startQuery": "k8s:ConfigMap:{}", "depth": 1 }
+          }
+        }
+      }
+    },
+    "layouts": [
+      {
+        "kind": "Grid",
+        "spec": {
+          "items": [
+            {
+              "x": 0, "y": 0, "width": 12, "height": 8,
+              "content": { "$ref": "#/spec/panels/Dummy" }
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

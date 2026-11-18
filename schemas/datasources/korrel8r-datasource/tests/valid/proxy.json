@@ -1,0 +1,1 @@
+{"kind":"Korrel8rDatasource","spec":{"proxy":{"kind":"HTTPProxy","spec":{"url":"http://korrel8r:8080/api/v1alpha1","allowedEndpoints":[{"endpointPattern":"/graphs/neighbors","method":"POST"},{"endpointPattern":"/graphs/goals","method":"POST"}]}}}}
