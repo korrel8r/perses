@@ -35,7 +35,7 @@ test("posts a neighbors request to the configured Perses proxy", async () => {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ start, depth: 2 }),
-      signal,
+      signal: expect.any(AbortSignal),
     },
   );
 });
@@ -86,7 +86,7 @@ test("posts a goal graph request with multiple goal classes", async () => {
     expect.objectContaining({
       method: "POST",
       body: JSON.stringify({ start, goals }),
-      signal,
+      signal: expect.any(AbortSignal),
     }),
   );
 });
@@ -120,6 +120,37 @@ test("preserves the entire JSON body of an unsuccessful goals request", async ()
         goals: ["log:record"],
       }),
     }),
+  );
+});
+
+test("preserves invalid successful graph bodies for diagnosis", async () => {
+  const body = { nodes: [{ class: "mock:foo", count: 1, queries: "wrong" }] };
+  mockFetch.mockResolvedValue({ ok: true, json: async () => body } as Response);
+  const client = Korrel8rDatasource.createClient(
+    {},
+    { proxyUrl: "/proxy/korrel8r" },
+  );
+  await expect(
+    client.graphNeighbors({ queries: ["mock:foo:x"] }),
+  ).rejects.toMatchObject({
+    name: "Korrel8rResponseError",
+    body,
+  });
+});
+
+test("preserves query parameters on the configured URL", async () => {
+  mockFetch.mockResolvedValue({
+    ok: true,
+    json: async () => ({ nodes: [] }),
+  } as Response);
+  const client = Korrel8rDatasource.createClient(
+    {},
+    { proxyUrl: "/proxy/korrel8r?token=abc" },
+  );
+  await client.graphNeighbors({ queries: ["mock:foo:x"] });
+  expect(mockFetch).toHaveBeenCalledWith(
+    "/proxy/korrel8r/graphs/neighbors?token=abc&rules=true",
+    expect.anything(),
   );
 });
 

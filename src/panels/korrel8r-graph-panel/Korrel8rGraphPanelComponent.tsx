@@ -1,8 +1,12 @@
-import { CircularProgress } from "@mui/material";
+import { Alert, CircularProgress } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { useDatasourceStore, useTimeRange } from "@perses-dev/plugin-system";
+import { useMemo } from "react";
 import type { ReactElement } from "react";
-import { Korrel8rHTTPError } from "../../datasources/korrel8r-datasource/korrel8r-datasource-types";
+import {
+  Korrel8rHTTPError,
+  Korrel8rResponseError,
+} from "../../datasources/korrel8r-datasource/korrel8r-datasource-types";
 import type {
   Korrel8rDatasourceClient,
   Korrel8rGraph,
@@ -10,6 +14,7 @@ import type {
 import type { Korrel8rGraphPanelProps } from "./korrel8r-graph-panel-types";
 import { Korrel8rTopology } from "./Korrel8rTopology";
 import { toTopologyGraph } from "./toTopologyGraph";
+import { parseGoals } from "./parseGoals";
 
 function LoadingIndicator(): ReactElement {
   return (
@@ -45,10 +50,7 @@ export function Korrel8rGraphPanelComponent({
   const { absoluteTimeRange } = useTimeRange();
   const startQuery = spec.startQuery?.trim() ?? "";
   const mode = spec.mode ?? "neighbors";
-  const goals = (spec.goals ?? "")
-    .split(/[,\n]+/)
-    .map((goal) => goal.trim())
-    .filter(Boolean);
+  const goals = parseGoals(spec.goals ?? "");
   const datasource = {
     kind: "Korrel8rDatasource",
     ...(spec.datasourceName ? { name: spec.datasourceName } : {}),
@@ -85,6 +87,19 @@ export function Korrel8rGraphPanelComponent({
       },
     },
   );
+  // A stable graph identity preserves the user's drag, fit and zoom state on
+  // unrelated panel renders (including fetch-progress and size updates).
+  const goalClasses = mode === "goals" ? (spec.goals ?? "") : "";
+  const topology = useMemo(
+    () =>
+      data && Array.isArray(data.nodes)
+        ? toTopologyGraph(data, {
+            startQueries: [startQuery],
+            goalClasses: parseGoals(goalClasses),
+          })
+        : undefined,
+    [data, startQuery, goalClasses],
+  );
 
   if (!startQuery)
     return <div role="status">Set a Korrel8r query in Query.</div>;
@@ -94,7 +109,33 @@ export function Korrel8rGraphPanelComponent({
   if (error) {
     const isHttpError = error instanceof Korrel8rHTTPError;
     const body =
-      isHttpError && error.body !== "" ? error.body : { error: error.message };
+      (isHttpError || error instanceof Korrel8rResponseError) &&
+      error.body !== "" &&
+      error.body != null
+        ? error.body
+        : { error: error.message };
+    // OpenShift's router returns an HTML 503 page when a route has no working
+    // backend. Avoid dumping that entire page as the primary error message.
+    if (
+      isHttpError &&
+      error.status === 503 &&
+      typeof body === "string" &&
+      body.includes("Application is not available")
+    ) {
+      return (
+        <div role="alert">
+          <strong>Korrel8r is unavailable (HTTP 503)</strong>
+          <p>
+            The configured Korrel8r route has no available backend. Check the
+            datasource URL and the OpenShift route, service endpoints and pods.
+          </p>
+          <details>
+            <summary>Full server response</summary>
+            <JsonText value={body} />
+          </details>
+        </div>
+      );
+    }
     return (
       <div role="alert">
         {isHttpError
@@ -105,21 +146,36 @@ export function Korrel8rGraphPanelComponent({
     );
   }
   if (!data) return <div role="status">No Korrel8r graph response.</div>;
-  const topology = toTopologyGraph(data, {
-    startQueries: [startQuery],
-    goalClasses: graphRequest.mode === "goals" ? graphRequest.goals : [],
-  });
+  if (!topology)
+    return (
+      <Alert severity="info" role="status">
+        Empty graph
+      </Alert>
+    );
   return (
     <div
       style={{
         display: "flex",
         flexDirection: "column",
+        position: "relative",
         width: "100%",
         height: contentDimensions?.height || 340,
         minHeight: 0,
       }}
     >
-      {isFetching && <LoadingIndicator />}
+      {isFetching && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 1,
+            right: 8,
+            bottom: 8,
+            background: "inherit",
+          }}
+        >
+          <LoadingIndicator />
+        </div>
+      )}
       {topology.nodes.length > 0 ? (
         <div style={{ flex: "1 1 0", minHeight: 0 }}>
           <Korrel8rTopology graph={topology} />

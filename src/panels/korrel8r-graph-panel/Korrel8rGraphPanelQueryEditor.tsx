@@ -3,11 +3,13 @@ import { OptionsEditorGroup } from "@perses-dev/components";
 import type { OptionsEditorProps } from "@perses-dev/plugin-system";
 import type { ReactElement } from "react";
 import type { Korrel8rGraphPanelOptions } from "./korrel8r-graph-panel-types";
+import { parseGoals } from "./parseGoals";
 
 /** Parse an optional whole number >= min; empty or invalid input clears it. */
 function wholeNumber(text: string, min: number): number | undefined {
-  const value = Number.parseInt(text, 10);
-  return Number.isNaN(value) ? undefined : Math.max(min, value);
+  if (text.trim() === "") return undefined;
+  const value = Number(text);
+  return Number.isSafeInteger(value) ? Math.max(min, value) : undefined;
 }
 
 /** Panel-managed graph requests need a custom tab until Perses has a graph query type. */
@@ -17,7 +19,7 @@ export function Korrel8rGraphPanelQueryEditor({
 }: OptionsEditorProps<Korrel8rGraphPanelOptions>): ReactElement {
   const mode = value.mode ?? "neighbors";
   const goals = value.goals ?? "";
-  const hasGoals = goals.split(/[,\n]+/).some((goal) => goal.trim() !== "");
+  const hasGoals = parseGoals(goals).length > 0;
   return (
     <OptionsEditorGroup title="Korrel8r graph query">
       <Stack spacing={2}>
@@ -51,7 +53,7 @@ export function Korrel8rGraphPanelQueryEditor({
             label="Goal classes"
             value={goals}
             error={!hasGoals}
-            helperText="Separate class names with commas or newlines, for example mock:bar"
+            helperText="Separate class names with commas or newlines, for example log:application, k8s:Pod"
             onChange={(e) => onChange({ ...value, goals: e.target.value })}
             multiline
             minRows={2}

@@ -1,12 +1,7 @@
 import { HTTPSettingsEditor } from "@perses-dev/plugin-system";
+import type { OptionsEditorProps } from "@perses-dev/plugin-system";
 import type { ReactElement } from "react";
 import type { Korrel8rDatasourceSpec } from "./korrel8r-datasource-types";
-
-export interface Korrel8rDatasourceEditorProps {
-  value: Korrel8rDatasourceSpec;
-  onChange: (next: Korrel8rDatasourceSpec) => void;
-  isReadonly?: boolean;
-}
 
 const initialSpecDirect: Korrel8rDatasourceSpec = { directUrl: "" };
 const initialSpecProxy: Korrel8rDatasourceSpec = {
@@ -22,16 +17,12 @@ const initialSpecProxy: Korrel8rDatasourceSpec = {
   },
 };
 
-export function Korrel8rDatasourceEditor({
-  value,
-  onChange,
-  isReadonly,
-}: Korrel8rDatasourceEditorProps): ReactElement {
+export function Korrel8rDatasourceEditor(
+  props: OptionsEditorProps<Korrel8rDatasourceSpec>,
+): ReactElement {
   return (
     <HTTPSettingsEditor
-      value={value}
-      onChange={onChange}
-      isReadonly={isReadonly}
+      {...props}
       initialSpecDirect={initialSpecDirect}
       initialSpecProxy={initialSpecProxy}
     />

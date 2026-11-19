@@ -42,6 +42,14 @@ export class Korrel8rHTTPError extends Error {
   }
 }
 
+/** An unexpected successful response; retain its raw body for diagnosis. */
+export class Korrel8rResponseError extends Error {
+  constructor(readonly body: unknown) {
+    super("Korrel8r returned an invalid graph response");
+    this.name = "Korrel8rResponseError";
+  }
+}
+
 export interface Korrel8rDatasourceClient extends DatasourceClient {
   /** Omit depth to use the Korrel8r server default; 0 returns only the start. */
   graphNeighbors(

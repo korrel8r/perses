@@ -1,6 +1,6 @@
 # Korrel8r Perses plugins
 
-Perses plugin-module for a **Korrel8rDatasource** and a **Korrel8rGraphPanel** .
+Perses plugin module for a **Korrel8rDatasource** and a **Korrel8rGraphPanel** .
 
 This repository is intended to resolve implementation questions before contributing the code to https://github.com/perses/plugins
 
@@ -8,30 +8,32 @@ Repository layout generated with `percli plugin generate` from https://github.co
 
 ## Status
 
-**Datasource — prototype with security issues:** supports direct or Perses-proxied requests to Korrel8r `POST /graphs/neighbors` and `POST /graphs/goals` at the `/api/v1alpha1` API root.
+**Datasource — prototype with security issues:** Supports direct or Perses-proxied requests to Korrel8r `POST /graphs/neighbors` and `POST /graphs/goals` at the `/api/v1alpha1` API root.
 
-The local demo uses an `oc whoami -t` user token in a Perses Secret, an unauthenticated Perses server with its default encryption key, and `tlsConfig.insecureSkipVerify: true` (no upstream certificate verification). **Do not use the demo authentication or TLS configuration in production.** The client has direct-HTTP integration tests, but proxy authentication, token lifecycle, CORS and the full API response types still need verification.
+The local demo uses an `oc whoami -t` user token in a Perses Secret, an unauthenticated Perses server with its default encryption key, and `tlsConfig.insecureSkipVerify: true`. **Do not use the demo authentication or TLS configuration in production.** The client has direct-HTTP integration tests, but proxy authentication, token lifecycle, CORS and the full API response types still need verification.
 
-**Panel — graph rendering placeholder:** the custom Query tab configures neighbor or goal requests, which use the Perses dashboard time range and an optional result limit. Neighbor depth is optional too: blank leaves the default to Korrel8r, and 0 returns only the start query results. `toTopologyGraph` maps the response to a placeholder static SVG graph: nodes sit on a ring that grows with the node count, and long class names are shortened. There is no interaction, and layout, navigation and accessibility need substantial work. The full response and errors are available as JSON.
+**Panel — interactive graph prototype:** Custom Query tab configures neighbor or goal requests, using Perses dashboard time range. `toTopologyGraph` maps the response to an ECharts graph with Dagre-positioned nodes and routed edges; class/domain icons, count badges, status markers, rule tooltips, query menu, node dragging, zoom/pan and direction controls. Accepts optional node, edge, and query callbacks via props or an application-provided React Context; it does not navigate on its own. The full response and errors are available as JSON. Class icons, layout and theme still need work.
 
-**Next steps:** see TODO section below
+**Next steps:** See the TODO below.
 
 ## Demo
 
-On Linux, install Podman (or Docker), `percli`, `oc`, and `curl`; log in with `oc login` and have a Korrel8r server running. From this checkout, set its **base URL** (without `/api/v1alpha1`) and run:
+On Linux, install Node.js, `percli`, `oc`, `curl`, and Podman or Docker. Log in with `oc login` and start Korrel8r separately. Set its **base URL** (without `/api/v1alpha1`), then run:
 
 ```sh
 export KORREL8R_URL=http://127.0.0.1:8081 # replace with your Korrel8r URL
 ./scripts/run-demo.sh
 ```
 
-The script starts local Perses and the plugin, provisions the **Dummy** project, proxy datasource and dashboard, then opens <http://localhost:8080/projects/Dummy/dashboards/Dummy> and follows the logs. If the browser does not open, visit the URL yourself; set `OPEN_BROWSER=0` for headless use. Press Ctrl-C to stop the demo (its data is ephemeral). It does **not** start Korrel8r. The Perses server must be able to reach `KORREL8R_URL`; it shares the host network, so a Korrel8r server on host loopback is reachable.
+The script checks an authenticated graph request, starts local Perses and the demo plugin, provisions the **Dummy** project, datasource and dashboard, then opens <http://localhost:8080/projects/Dummy/dashboards/Dummy>. Set `OPEN_BROWSER=0` to skip the browser; press Ctrl-C to stop the servers. Data is ephemeral. Perses shares the host network and must be able to reach `KORREL8R_URL`. If preflight returns **HTTP 503**, check the URL and the Korrel8r route, endpoints and pods (`oc get routes,services,endpoints,pods -n <namespace>`).
 
-The Dummy panel starts with neighbor query `k8s:Pod:{}` at depth 1. To edit it, click dashboard **Edit**, then the **pencil** in the panel header; use the panel's **Query** tab to set a query and choose **Neighbors** (depth) or **Goals** (goal class names). Click **Apply**, then dashboard **Save**. The graph follows the dashboard time range; expand **Full Korrel8r JSON response** to inspect the result. The **Settings** tab selects a nondefault datasource if needed.
+The panel starts with neighbor query `k8s:ConfigMap:{}` at depth 1 - a quick non-empty query on most clusters. To change it, select dashboard **Edit**, the panel **pencil**, and the **Query** tab. Choose **Neighbors** (depth) or **Goals** (class names), then **Apply** and **Save**. The graph follows the dashboard time range. Expand **Full Korrel8r JSON response** to inspect the result; use **Settings** for a nondefault datasource.
 
-**Security: local demo only.** Provisioning uses an `oc whoami -t` bearer token in a Perses Secret and disables upstream TLS certificate verification (`tlsConfig.insecureSkipVerify: true`). Perses is unauthenticated, uses its default encryption key, and binds to `127.0.0.1:8080`; do not expose it on a shared network or reuse this configuration in production. See the TODO for production authentication and CA trust.
+The demo uses `demo/rsbuild.config.ts`: node/edge clicks and query selections show the callback data in a dismissible JSON dialog. That data may be sensitive. Normal builds use `rsbuild.config.ts` and do not include the dialog; dashboard specs contain no demo callbacks.
 
-The script uses Podman when available (or Docker; set `CONTAINER_ENGINE=docker` to force it). Set `PERSES_IMAGE` to select a matching Perses image. Plugin TypeScript hot-reloads; schema changes require restarting the demo because Perses mounts a snapshot of the schemas. For other dashboards, configure a **Korrel8r Datasource** at the `/api/v1alpha1` API root and add a **Korrel8r Graph Panel**; direct browser connections require CORS, while the HTTP proxy does not. Saved plugin kinds remain `Korrel8rDatasource` and `Korrel8rGraphPanel`.
+**Local demo only:** the script stores your `oc whoami -t` token in a Perses Secret, disables upstream TLS verification, and runs unauthenticated Perses with its default encryption key on `127.0.0.1:8080`. Do not expose or reuse this setup in production. See the TODO for authentication and CA trust.
+
+Podman is preferred; set `CONTAINER_ENGINE=docker` to use Docker or `PERSES_IMAGE` to choose an image. TypeScript hot-reloads; restart the demo after schema changes. For other dashboards, use a **Korrel8r Datasource** at the `/api/v1alpha1` API root and add a **Korrel8r Graph Panel**. Direct browser access requires CORS; the HTTP proxy does not. Saved kinds are `Korrel8rDatasource` and `Korrel8rGraphPanel`.
 
 ## Development
 
@@ -76,11 +78,14 @@ The runner installs the upstream Go **tool** into a temporary directory via `go 
 
 1. Replace the datasource-name text field with Perses's datasource picker in the panel's Settings tab.
 2. Integrate the custom Query tab with Perses's native query editor when a graph-specific query type is supported. Until then, query options live in the panel spec and requests are panel-managed; do not misrepresent graph data as `TimeSeriesData`.
-3. Interactive rendering to match the troubleshooting panel: icons, context menus, similar layout algorithm, parallel edges, full labels; add zoom/pan, accessible node/edge interaction, query choices and safe navigation links. Keep the full JSON available for troubleshooting.
-4. Allow click behavior on graph elements to be supplied externally by the embedding application, rather than hard-coded in the renderer. Use this extension point to reproduce [OpenShift troubleshooting panel](https://github.com/openshift/troubleshooting-panel-console-plugin) behavior in the Perses panel. The current Console implementation is in `troubleshooting-panel-console-plugin/web/src/korrel8r-client.ts` and `web/src/components/topology/Korrel8rTopology.tsx`.
+3. Refine the graph to match the troubleshooting display: accessible keyboard node/edge interaction, unavailable destinations, and better layout of large, cyclic or highly connected graphs. Keep the full JSON available for troubleshooting.
+4. Supply navigation and clipboard behavior from the embedding application through the renderer's optional callbacks, rather than hard-coding console-specific URLs in the Perses panel. The panel intentionally leaves these unset.
 5. Exercise the panel against a real local Perses server with a configured HTTP proxy and a sample dashboard. Verify proxy allowlisting, authentication and CSP/CORS; the current integration test covers direct HTTP only.
 6. Revisit bearer-token and TLS management before production: remove the demo's `tlsConfig.insecureSkipVerify: true` and configure the trusted ingress CA (`tlsConfig.ca` or the container trust store); replace the demo's `oc whoami -t` user token and unauthenticated Perses server with an appropriate scoped identity, secure Secret storage, token rotation/refresh and access controls. Determine whether to forward user identity or use a service identity for Korrel8r.
 7. Expand API types/validation and add tests for graph variants, failures, time bounds and panel interaction. Tighten the CUE proxy schema against Perses's HTTPProxy schema and prepare the plugin module for upstream contribution.
+8. Improve error handling: distinguish Korrel8r API errors from Perses proxy, authentication, network and OpenShift route failures; provide actionable messages and appropriate retry/cancellation states while retaining the full response for troubleshooting.
+9. Refine the graph theme styling (colors, typography, badges and contrast) 
+10. Review icon management and consistency with the rest of the OpenShift console: align class/domain mappings, SVG sources, sizing, theme colors, and attribution; avoid duplicating icon definitions where practical.
 
 
 Perses documentation: [creating plugins](https://github.com/perses/perses/blob/main/docs/plugins/creation.md); [Prometheus datasource and query plugin example](https://github.com/perses/plugins/tree/main/prometheus).

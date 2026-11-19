@@ -61,6 +61,8 @@ test("keeps the persisted depth a whole number, blank for the server default", (
   expect(onEdit).toHaveBeenLastCalledWith({ depth: 0 });
   fireEvent.change(depth, { target: { value: "3" } });
   expect(onEdit).toHaveBeenLastCalledWith({ depth: 3 });
+  fireEvent.change(depth, { target: { value: "1.5" } });
+  expect(onEdit).toHaveBeenLastCalledWith({ depth: undefined });
 });
 
 test("sets an optional result limit and clears it when blank", () => {
@@ -71,6 +73,8 @@ test("sets an optional result limit and clears it when blank", () => {
 
   fireEvent.change(limit, { target: { value: "50" } });
   expect(onEdit).toHaveBeenLastCalledWith({ depth: 1, limit: 50 });
+  fireEvent.change(limit, { target: { value: "2.5" } });
+  expect(onEdit).toHaveBeenLastCalledWith({ depth: 1, limit: undefined });
   fireEvent.change(limit, { target: { value: "" } });
   expect(onEdit).toHaveBeenLastCalledWith({ depth: 1, limit: undefined });
   expect(limit).toHaveValue(null);

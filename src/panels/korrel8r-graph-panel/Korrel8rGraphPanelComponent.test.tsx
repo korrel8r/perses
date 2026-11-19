@@ -1,8 +1,23 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { useDatasourceStore, useTimeRange } from "@perses-dev/plugin-system";
 import { Korrel8rHTTPError } from "../../datasources/korrel8r-datasource/korrel8r-datasource-types";
 import { Korrel8rGraphPanelComponent } from "./Korrel8rGraphPanelComponent";
+
+// ECharts needs a real canvas; panel tests exercise data flow, not chart rendering.
+const mockSetOption = jest.fn();
+jest.mock("./TopologyChart", () => ({
+  TopologyChart: ({ chart }: { chart: { current: unknown } }) => {
+    chart.current = { setOption: mockSetOption };
+    return <div />;
+  },
+}));
 
 jest.mock("@perses-dev/plugin-system", () => ({
   useDatasourceStore: jest.fn(),
@@ -16,6 +31,7 @@ const getDatasourceClient = jest.fn();
 beforeEach(() => {
   graphNeighbors.mockReset();
   graphGoals.mockReset();
+  mockSetOption.mockClear();
   getDatasourceClient
     .mockReset()
     .mockResolvedValue({ graphNeighbors, graphGoals });
@@ -130,7 +146,7 @@ test("fetches neighbors in the dashboard time range and displays JSON", async ()
   expect(
     screen.getByRole("img", { name: /1 nodes and 0 edges/ }),
   ).toBeInTheDocument();
-  expect(screen.getByText("mock:foo (start)")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Zoom In" })).toBeInTheDocument();
   expect(getDatasourceClient).toHaveBeenCalledWith({
     kind: "Korrel8rDatasource",
     name: "local",
@@ -149,6 +165,34 @@ test("fetches neighbors in the dashboard time range and displays JSON", async ()
   expect(graphGoals).not.toHaveBeenCalled();
 });
 
+test("preserves the topology view when the panel rerenders without new data", async () => {
+  const graph = { nodes: [{ class: "mock:foo", count: 1 }], edges: [] };
+  graphNeighbors.mockResolvedValue(graph);
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  const panel = (height: number) => (
+    <QueryClientProvider client={client}>
+      <Korrel8rGraphPanelComponent
+        spec={{ startQuery: "mock:foo:x" }}
+        queryResults={[]}
+        contentDimensions={{ width: 300, height }}
+      />
+    </QueryClientProvider>
+  );
+  const { rerender } = render(panel(180));
+  await screen.findByRole("img");
+  fireEvent.click(screen.getByRole("button", { name: "Zoom In" }));
+  expect(mockSetOption).toHaveBeenLastCalledWith({
+    series: [expect.objectContaining({ type: "graph", zoom: 1.25 })],
+  });
+  rerender(panel(200));
+  fireEvent.click(screen.getByRole("button", { name: "Zoom In" }));
+  expect(mockSetOption).toHaveBeenLastCalledWith({
+    series: [expect.objectContaining({ type: "graph", zoom: 1.5625 })],
+  });
+});
+
 test("fits the graph within Perses panel dimensions", async () => {
   graphNeighbors.mockResolvedValue({
     nodes: [{ class: "mock:foo", count: 1 }],
@@ -156,10 +200,7 @@ test("fits the graph within Perses panel dimensions", async () => {
   });
   showPanel({ startQuery: "mock:foo:x" }, { width: 260, height: 180 });
   const graph = await screen.findByRole("img");
-  expect(graph).toHaveAttribute("width", "100%");
-  expect(graph).toHaveAttribute("height", "100%");
-  expect(graph).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
-  expect(graph.closest("div")?.parentElement?.parentElement).toHaveStyle({
+  expect(graph.parentElement?.parentElement?.parentElement).toHaveStyle({
     height: "180px",
     width: "100%",
   });
@@ -182,7 +223,9 @@ test("requests a goal-directed graph with multiple goal classes", async () => {
 
   const json = await screen.findByText(/"goal": "mock:bar"/);
   expect(json.textContent).toBe(JSON.stringify(graph, null, 2));
-  expect(screen.getByText("mock:bar (goal)")).toBeInTheDocument();
+  expect(
+    screen.getByRole("img", { name: /2 nodes and 1 edges/ }),
+  ).toBeInTheDocument();
   expect(graphGoals).toHaveBeenCalledWith(
     {
       queries: ["mock:foo:x"],
@@ -322,6 +365,29 @@ test("renders an empty graph message while retaining the JSON response", async (
   expect(screen.getByText("Full Korrel8r JSON response")).toBeInTheDocument();
 });
 
+test.each([undefined, null])(
+  "shows only an informational Empty graph message when nodes are %s",
+  async (nodes) => {
+    graphNeighbors.mockResolvedValue({
+      nodes,
+      error: "private backend details",
+    });
+    showPanel({ startQuery: "mock:foo:x" });
+    expect(await screen.findByText("Empty graph")).toBeInTheDocument();
+    const status = screen.getByRole("status");
+    expect(status).toHaveClass("MuiAlert-standardInfo");
+    expect(status.querySelector("svg")).not.toBeNull();
+    expect(status).toHaveTextContent(/^Empty graph$/);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/private backend details/),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Full Korrel8r JSON response"),
+    ).not.toBeInTheDocument();
+  },
+);
+
 test("waits for goal classes before requesting a goal graph", () => {
   showPanel({ mode: "goals", startQuery: "mock:foo:x", goals: "  , \n" });
   expect(screen.getByRole("status")).toHaveTextContent(
@@ -342,6 +408,28 @@ test("displays the complete JSON body of an HTTP error", async () => {
     showPanel({ startQuery: "mock:foo:x" });
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("HTTP 400 Bad Request");
+    expect(alert.querySelector("pre")?.textContent).toBe(
+      JSON.stringify(body, null, 2),
+    );
+  } finally {
+    consoleError.mockRestore();
+  }
+});
+
+test("explains an OpenShift route 503 without hiding its raw response", async () => {
+  const body = "<html><h1>Application is not available</h1></html>";
+  const consoleError = jest
+    .spyOn(console, "error")
+    .mockImplementation(() => {});
+  try {
+    graphNeighbors.mockRejectedValue(
+      new Korrel8rHTTPError(503, "Service Unavailable", body),
+    );
+    showPanel({ startQuery: "mock:foo:x" });
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Korrel8r is unavailable (HTTP 503)");
+    expect(alert).toHaveTextContent("Check the datasource URL");
+    expect(alert).toHaveTextContent("Full server response");
     expect(alert.querySelector("pre")?.textContent).toBe(
       JSON.stringify(body, null, 2),
     );

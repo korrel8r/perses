@@ -1,4 +1,4 @@
-.PHONY: all
+.PHONY: all demo
 
 # Pre-commit checks; requires Node.js, Go, percli, curl and network access.
 all:

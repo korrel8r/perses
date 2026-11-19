@@ -18,7 +18,7 @@ const config: Config.InitialOptions = {
     ],
   },
   setupFilesAfterEnv: ['<rootDir>/src/setup-tests.ts'],
-  testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/src/**/*.test.tsx'],
+  testMatch: ['<rootDir>/src/**/*.test.ts', '<rootDir>/src/**/*.test.tsx', '<rootDir>/demo/**/*.test.tsx'],
 };
 
 export default config;

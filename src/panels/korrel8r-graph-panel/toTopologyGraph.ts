@@ -12,6 +12,8 @@ export interface TopologyNode {
   }>;
   isStart: boolean;
   isGoal: boolean;
+  /** Optional embedding-specific availability; Korrel8r does not supply this. */
+  unavailableReason?: string;
 }
 
 export interface TopologyEdge {
@@ -45,10 +47,8 @@ export function toTopologyGraph(
       queries: (node.queries ?? []).map((query) => ({
         query: query.query,
         count: query.count,
-        statuses: (query.statuses ?? []).map(({ status, count }) => ({
-          status,
-          count,
-        })),
+        // Keep the renderer model independent of cached API results.
+        statuses: (query.statuses ?? []).map((status) => ({ ...status })),
       })),
       // Korrel8r queries begin with '<class>:'; don't split at the first
       // colon because class names such as 'k8s:Pod' contain colons.
