@@ -44,16 +44,17 @@ test("switches between neighbor depth and goal classes without losing options", 
   expect(screen.getByLabelText("Neighbor depth")).toHaveValue(2);
 });
 
-test("keeps the persisted depth a whole number, blank for the server default", () => {
+test("requires a whole-number depth and defaults blank or invalid input to 2", () => {
   const onEdit = jest.fn();
   render(<Editor onEdit={onEdit} />);
   const depth = screen.getByLabelText("Neighbor depth");
 
-  // Blank clears the option so the request omits depth; 0 is a valid depth,
-  // and invalid or negative input must never reach the panel spec.
+  expect(depth).toBeRequired();
+  // Blank and invalid input must not remove depth from the panel spec.
+  // 0 is valid and returns only the start results.
   fireEvent.change(depth, { target: { value: "" } });
-  expect(onEdit).toHaveBeenLastCalledWith({ depth: undefined });
-  expect(depth).toHaveValue(null);
+  expect(onEdit).toHaveBeenLastCalledWith({ depth: 2 });
+  expect(depth).toHaveValue(2);
   fireEvent.change(depth, { target: { value: "0" } });
   expect(onEdit).toHaveBeenLastCalledWith({ depth: 0 });
   expect(depth).toHaveValue(0);
@@ -62,7 +63,17 @@ test("keeps the persisted depth a whole number, blank for the server default", (
   fireEvent.change(depth, { target: { value: "3" } });
   expect(onEdit).toHaveBeenLastCalledWith({ depth: 3 });
   fireEvent.change(depth, { target: { value: "1.5" } });
-  expect(onEdit).toHaveBeenLastCalledWith({ depth: undefined });
+  expect(onEdit).toHaveBeenLastCalledWith({ depth: 2 });
+});
+
+test("shows depth 2 for existing panels without a saved depth", () => {
+  const onEdit = jest.fn();
+  render(<Editor initial={{}} onEdit={onEdit} />);
+  expect(screen.getByLabelText("Neighbor depth")).toHaveValue(2);
+  fireEvent.change(screen.getByLabelText("Result limit"), {
+    target: { value: "5" },
+  });
+  expect(onEdit).toHaveBeenLastCalledWith({ limit: 5 });
 });
 
 test("sets an optional result limit and clears it when blank", () => {

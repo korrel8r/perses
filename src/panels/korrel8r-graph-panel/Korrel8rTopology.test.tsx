@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import type { EChartsCoreOption } from "echarts/core";
 import { Korrel8rTopology } from "./Korrel8rTopology";
 import { TopologyActionsContext } from "./TopologyActionsContext";
@@ -472,7 +478,7 @@ test("fit to screen keeps dragged nodes but reset view restores the layout", () 
     before.symbolSize,
   );
   fireEvent.click(screen.getByRole("button", { name: "Reset View" }));
-  expect(option().series[0].data[1]).toMatchObject({ x: 0, y: 136 });
+  expect(option().series[0].data[1]).toMatchObject({ x: 0, y: 116 });
 });
 
 test("right-click menu shows sorted queries; callbacks are optional and never navigate", () => {
@@ -496,6 +502,125 @@ test("right-click menu shows sorted queries; callbacks are optional and never na
     graph.nodes[0],
     graph.nodes[0]!.queries[1],
   );
+});
+
+test("constrains long menu queries, reveals the full text on focus, and selects the original query", async () => {
+  const query = {
+    query: `k8s:Pod:{name="${"a".repeat(500)}"}`,
+    count: 3,
+    statuses: [],
+  };
+  const node = {
+    ...graph.nodes[0]!,
+    id: `k8s:${"long".repeat(150)}`,
+    queries: [query],
+  };
+  const onQuerySelect = jest.fn();
+  // JSDOM has no layout; give the tooltip anchor a visible rectangle.
+  const getBoundingClientRect = jest
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(() => ({
+      top: 10,
+      left: 10,
+      right: 110,
+      bottom: 34,
+      width: 100,
+      height: 24,
+      x: 10,
+      y: 10,
+      toJSON: () => ({}),
+    }));
+  render(
+    <Korrel8rTopology
+      graph={{ nodes: [node], edges: [] }}
+      onQuerySelect={onQuerySelect}
+    />,
+  );
+  act(() =>
+    mockChartProps.onEvents.contextmenu!({
+      dataType: "node",
+      name: node.id,
+      event: { event: { preventDefault: jest.fn(), clientX: 20, clientY: 40 } },
+    }),
+  );
+  const [header, entry] = screen.getAllByRole("menuitem");
+  expect(header).toHaveTextContent(node.id);
+  expect(screen.getByText(node.id)).toHaveStyle({ textOverflow: "ellipsis" });
+  expect(entry).toHaveTextContent(query.query);
+  expect(screen.getByText(query.query)).toHaveStyle({
+    textOverflow: "ellipsis",
+  });
+  expect(entry!.closest(".MuiPaper-root")).toHaveStyle({
+    maxWidth: "min(480px, calc(100vw - 32px))",
+  });
+  fireEvent.focus(entry!);
+  expect(await screen.findByRole("tooltip")).toHaveTextContent(query.query);
+  fireEvent.click(entry!);
+  expect(onQuerySelect).toHaveBeenCalledWith(node, query);
+  getBoundingClientRect.mockRestore();
+});
+
+test("copy icon copies the full query without selecting it or closing the menu", async () => {
+  const query = `k8s:Pod:{name="${"a".repeat(500)}"}`;
+  const writeText = jest.fn().mockResolvedValue(undefined);
+  const clipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
+  const getBoundingClientRect = jest
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(() => ({
+      top: 10,
+      left: 10,
+      right: 110,
+      bottom: 34,
+      width: 100,
+      height: 24,
+      x: 10,
+      y: 10,
+      toJSON: () => ({}),
+    }));
+  try {
+    const onQuerySelect = jest.fn();
+    render(
+      <Korrel8rTopology
+        graph={{
+          nodes: [
+            {
+              ...graph.nodes[0]!,
+              queries: [{ query, count: 1, statuses: [] }],
+            },
+          ],
+          edges: [],
+        }}
+        onQuerySelect={onQuerySelect}
+      />,
+    );
+    act(() =>
+      mockChartProps.onEvents.contextmenu!({
+        dataType: "node",
+        name: "k8s:Pod.v1",
+        event: {
+          event: { preventDefault: jest.fn(), clientX: 20, clientY: 40 },
+        },
+      }),
+    );
+    const copy = screen.getByRole("button", { name: "Copy query" });
+    fireEvent.click(copy);
+    expect(writeText).toHaveBeenCalledWith(query);
+    expect(onQuerySelect).not.toHaveBeenCalled();
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+    await waitFor(() => expect(copy).toHaveAccessibleName("Copied"));
+    writeText.mockRejectedValueOnce(new Error("Clipboard denied"));
+    fireEvent.click(copy);
+    await waitFor(() => expect(copy).toHaveAccessibleName("Copy failed"));
+    expect(onQuerySelect).not.toHaveBeenCalled();
+  } finally {
+    getBoundingClientRect.mockRestore();
+    if (clipboard) Object.defineProperty(navigator, "clipboard", clipboard);
+    else Reflect.deleteProperty(navigator, "clipboard");
+  }
 });
 
 test("parallel links follow distinct Dagre routes and unavailable nodes have no actions", () => {

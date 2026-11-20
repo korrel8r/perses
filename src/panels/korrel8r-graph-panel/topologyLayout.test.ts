@@ -40,9 +40,8 @@ test("lays out directed chains by layer in both directions", () => {
   expect(horizontal.get("b")!.x).toBeLessThan(horizontal.get("c")!.x);
   expect(vertical.get("a")!.y).toBeLessThan(vertical.get("b")!.y);
   expect(vertical.get("b")!.y).toBeLessThan(vertical.get("c")!.y);
-  expect(
-    horizontal.get("b")!.x - horizontal.get("a")!.x,
-  ).toBeGreaterThanOrEqual(64);
+  expect(horizontal.get("b")!.x - horizontal.get("a")!.x).toBe(80); // 64px symbol/label plus 16px between ranks.
+  expect(vertical.get("b")!.y - vertical.get("a")!.y).toBe(116);
   expect(topologyCanvasSize(graph, horizontal).width).toBeGreaterThan(232);
   expect(topologyCanvasSize(graph, vertical).height).toBeGreaterThan(272);
   const shuffled = layoutTopology(
@@ -62,9 +61,7 @@ test("siblings in a top-to-bottom row have room for labels and badges", () => {
     ],
   };
   const positions = layoutTopology(graph, "TB");
-  expect(positions.get("c")!.x - positions.get("b")!.x).toBeGreaterThanOrEqual(
-    64,
-  );
+  expect(positions.get("c")!.x - positions.get("b")!.x).toBe(76); // 64px labels plus 12px between siblings.
   expect(positions.get("b")!.y).toBe(positions.get("c")!.y);
   expect(topologyCanvasSize(graph, positions).width).toBeGreaterThan(160);
 });

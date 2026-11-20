@@ -11,7 +11,10 @@ import type {
   Korrel8rDatasourceClient,
   Korrel8rGraph,
 } from "../../datasources/korrel8r-datasource/korrel8r-datasource-types";
-import type { Korrel8rGraphPanelProps } from "./korrel8r-graph-panel-types";
+import {
+  DEFAULT_NEIGHBOR_DEPTH,
+  type Korrel8rGraphPanelProps,
+} from "./korrel8r-graph-panel-types";
 import { Korrel8rTopology } from "./Korrel8rTopology";
 import { toTopologyGraph } from "./toTopologyGraph";
 import { parseGoals } from "./parseGoals";
@@ -65,7 +68,9 @@ export function Korrel8rGraphPanelComponent({
   };
   // Include only the options used by this mode in both the request and its key.
   const graphRequest =
-    mode === "goals" ? { mode, goals } : { mode, depth: spec.depth };
+    mode === "goals"
+      ? { mode, goals }
+      : { mode, depth: spec.depth ?? DEFAULT_NEIGHBOR_DEPTH };
   const { data, error, isLoading, isFetching } = useQuery<Korrel8rGraph, Error>(
     {
       queryKey: [

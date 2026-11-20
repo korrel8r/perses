@@ -5,6 +5,7 @@ import {
   Menu,
   MenuItem,
   Stack,
+  SvgIcon,
   Tooltip,
   useTheme,
 } from "@mui/material";
@@ -78,6 +79,10 @@ export function Korrel8rTopology({
     string,
     { x: number; y: number }
   > | null>(null);
+  const [copyStatus, setCopyStatus] = useState<{
+    query: string;
+    message: string;
+  } | null>(null);
   const [menu, setMenu] = useState<{
     node: TopologyNode;
     x: number;
@@ -364,6 +369,7 @@ export function Korrel8rTopology({
                 params.event?.target?.type === "text" &&
                 params.event.event
               ) {
+                setCopyStatus(null);
                 setMenu({
                   node,
                   x: params.event.event.clientX ?? 0,
@@ -379,6 +385,7 @@ export function Korrel8rTopology({
               const event = params.event?.event;
               if (node && event) {
                 event.preventDefault();
+                setCopyStatus(null);
                 setMenu({ node, x: event.clientX ?? 0, y: event.clientY ?? 0 });
               }
             }}
@@ -445,35 +452,122 @@ export function Korrel8rTopology({
         onClose={() => setMenu(null)}
         anchorReference="anchorPosition"
         anchorPosition={menu ? { top: menu.y, left: menu.x } : undefined}
+        PaperProps={{ sx: { maxWidth: "min(480px, calc(100vw - 32px))" } }}
       >
-        {menu && <MenuItem disabled>{menu.node.id}</MenuItem>}
+        {menu && (
+          <MenuItem disabled sx={{ minWidth: 0 }}>
+            <Box
+              sx={{
+                minWidth: 0,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {menu.node.id}
+            </Box>
+          </MenuItem>
+        )}
         {!menu?.node.unavailableReason &&
           menu?.node.queries
             .slice()
             .sort((a, b) => b.count - a.count)
             .map((query) => (
-              <MenuItem
-                key={query.query}
-                onClick={() => {
-                  (onQuerySelect ?? actions.onQuerySelect)?.(menu.node, query);
-                  setMenu(null);
-                }}
-              >
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip size="small" label={query.count} />
-                  <span>{query.query}</span>
-                  {query.statuses
-                    .filter(({ status }) => status)
-                    .map(({ status, count }) => (
-                      <Chip
-                        key={status}
+              <Tooltip key={query.query} title={query.query} placement="top">
+                <MenuItem
+                  sx={{ minWidth: 0 }}
+                  onClick={() => {
+                    (onQuerySelect ?? actions.onQuerySelect)?.(
+                      menu.node,
+                      query,
+                    );
+                    setMenu(null);
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    alignItems="center"
+                    sx={{ width: "100%", minWidth: 0 }}
+                  >
+                    <Chip
+                      size="small"
+                      label={query.count}
+                      sx={{ flexShrink: 0 }}
+                    />
+                    <Box
+                      component="span"
+                      sx={{
+                        minWidth: 0,
+                        flex: "1 1 auto",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {query.query}
+                    </Box>
+                    {query.statuses
+                      .filter(({ status }) => status)
+                      .map(({ status, count }) => (
+                        <Chip
+                          key={status}
+                          size="small"
+                          color={severity(status)}
+                          label={`${status}: ${count}`}
+                          sx={{ flexShrink: 0 }}
+                        />
+                      ))}
+                    <Tooltip
+                      title={
+                        copyStatus?.query === query.query
+                          ? copyStatus.message
+                          : "Copy query"
+                      }
+                    >
+                      <IconButton
                         size="small"
-                        color={severity(status)}
-                        label={`${status}: ${count}`}
-                      />
-                    ))}
-                </Stack>
-              </MenuItem>
+                        aria-label={
+                          copyStatus?.query === query.query
+                            ? copyStatus.message
+                            : "Copy query"
+                        }
+                        sx={{ flexShrink: 0 }}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ")
+                            event.stopPropagation();
+                        }}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          if (!navigator.clipboard?.writeText) {
+                            setCopyStatus({
+                              query: query.query,
+                              message: "Copy unavailable",
+                            });
+                            return;
+                          }
+                          void navigator.clipboard.writeText(query.query).then(
+                            () =>
+                              setCopyStatus({
+                                query: query.query,
+                                message: "Copied",
+                              }),
+                            () =>
+                              setCopyStatus({
+                                query: query.query,
+                                message: "Copy failed",
+                              }),
+                          );
+                        }}
+                      >
+                        <SvgIcon fontSize="small">
+                          <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1 .9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z" />
+                        </SvgIcon>
+                      </IconButton>
+                    </Tooltip>
+                  </Stack>
+                </MenuItem>
+              </Tooltip>
             ))}
       </Menu>
     </Box>

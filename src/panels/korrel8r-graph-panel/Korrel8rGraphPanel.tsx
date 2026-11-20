@@ -1,8 +1,9 @@
 import type { PanelPlugin } from "@perses-dev/plugin-system";
 import { Korrel8rGraphPanelComponent } from "./Korrel8rGraphPanelComponent";
-import type {
-  Korrel8rGraphPanelOptions,
-  Korrel8rGraphPanelProps,
+import {
+  DEFAULT_NEIGHBOR_DEPTH,
+  type Korrel8rGraphPanelOptions,
+  type Korrel8rGraphPanelProps,
 } from "./korrel8r-graph-panel-types";
 import { Korrel8rGraphPanelQueryEditor } from "./Korrel8rGraphPanelQueryEditor";
 import { Korrel8rGraphPanelSettingsEditor } from "./Korrel8rGraphPanelSettingsEditor";
@@ -20,6 +21,8 @@ export const Korrel8rGraphPanel: PanelPlugin<
   // no built-in Perses query type returns Korrel8r graphs.
   hideQueryEditor: true,
   supportedQueryTypes: [],
-  // Leave depth unset so new panels use the Korrel8r server default.
-  createInitialOptions: () => ({ mode: "neighbors" }),
+  createInitialOptions: () => ({
+    mode: "neighbors",
+    depth: DEFAULT_NEIGHBOR_DEPTH,
+  }),
 };

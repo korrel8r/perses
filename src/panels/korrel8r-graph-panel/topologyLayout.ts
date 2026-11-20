@@ -66,7 +66,8 @@ export function layoutTopologyWithRoutes(
   direction: LayoutDirection,
 ): RoutedLayout {
   const layout = new dagre.graphlib.Graph({ multigraph: true });
-  layout.setGraph({ rankdir: direction, nodesep: LABEL_GAP + 16, ranksep: 36 });
+  // Keep ranks compact while leaving room for symbols, labels and edge routing.
+  layout.setGraph({ rankdir: direction, nodesep: LABEL_GAP + 4, ranksep: 16 });
   layout.setDefaultEdgeLabel(() => ({}));
   // Sorting prevents unrelated server ordering changes from reshuffling the layout.
   for (const node of [...graph.nodes].sort((a, b) =>

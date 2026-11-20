@@ -2,7 +2,10 @@ import { Stack, TextField } from "@mui/material";
 import { OptionsEditorGroup } from "@perses-dev/components";
 import type { OptionsEditorProps } from "@perses-dev/plugin-system";
 import type { ReactElement } from "react";
-import type { Korrel8rGraphPanelOptions } from "./korrel8r-graph-panel-types";
+import {
+  DEFAULT_NEIGHBOR_DEPTH,
+  type Korrel8rGraphPanelOptions,
+} from "./korrel8r-graph-panel-types";
 import { parseGoals } from "./parseGoals";
 
 /** Parse an optional whole number >= min; empty or invalid input clears it. */
@@ -63,11 +66,14 @@ export function Korrel8rGraphPanelQueryEditor({
           <TextField
             label="Neighbor depth"
             type="number"
-            inputProps={{ min: 0 }}
-            value={value.depth ?? ""}
-            helperText="Correlation steps from the start; blank uses the Korrel8r default, 0 returns only the start results"
+            inputProps={{ min: 0, required: true }}
+            value={value.depth ?? DEFAULT_NEIGHBOR_DEPTH}
+            helperText="Correlation steps from the start, 0 returns only the start results"
             onChange={(e) =>
-              onChange({ ...value, depth: wholeNumber(e.target.value, 0) })
+              onChange({
+                ...value,
+                depth: wholeNumber(e.target.value, 0) ?? DEFAULT_NEIGHBOR_DEPTH,
+              })
             }
             fullWidth
           />
@@ -77,7 +83,7 @@ export function Korrel8rGraphPanelQueryEditor({
           type="number"
           inputProps={{ min: 1 }}
           value={value.limit ?? ""}
-          helperText="Maximum results per query; leave blank for the server default"
+          helperText="Maximum results per query; blank is unlimited"
           onChange={(e) =>
             onChange({ ...value, limit: wholeNumber(e.target.value, 1) })
           }

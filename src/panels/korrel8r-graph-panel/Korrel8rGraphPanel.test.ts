@@ -19,8 +19,8 @@ test("can be added without a Perses query type", () => {
     { label: "Query", content: Korrel8rGraphPanelQueryEditor },
     { label: "Settings", content: Korrel8rGraphPanelSettingsEditor },
   ]);
-  // No depth: new panels use the Korrel8r server default.
   expect(Korrel8rGraphPanel.createInitialOptions()).toEqual({
     mode: "neighbors",
+    depth: 2,
   });
 });

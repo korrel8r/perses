@@ -240,7 +240,7 @@ test("requests a goal-directed graph with multiple goal classes", async () => {
   expect(graphNeighbors).not.toHaveBeenCalled();
 });
 
-test("applies an optional result limit and omits an unset depth", async () => {
+test("applies an optional result limit and defaults an unset depth to 2", async () => {
   graphNeighbors.mockResolvedValue({ nodes: [], edges: [] });
   showPanel({ startQuery: "mock:foo:x", limit: 25 });
   await screen.findByText("Full Korrel8r JSON response");
@@ -253,7 +253,7 @@ test("applies an optional result limit and omits an unset depth", async () => {
         limit: 25,
       },
     },
-    undefined, // Korrel8r applies its own default depth.
+    2, // Older saved panels without depth also use the required default.
     expect.any(AbortSignal),
   );
 });
