@@ -1,0 +1,7 @@
+{
+  "kind": "Korrel8rGraphPanel",
+  "spec": {
+    "startQuery": "k8s:Pod:{namespace=\"default\"}",
+    "depth": 1
+  }
+}

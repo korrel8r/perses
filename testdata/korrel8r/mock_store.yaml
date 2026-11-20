@@ -1,0 +1,4 @@
+# Mock data adapted from upstream cmd/korrel8r/testdata/mock_store.yaml.
+"mock:foo:hello": ["hello"]
+"mock:foo:x": ["foo.x"]
+"mock:bar:y": ["bar.y"]
